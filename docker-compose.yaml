@@ -55,6 +55,8 @@ services:
       dockerfile: Dockerfile
     # expose:
     #   - "8000"
+    env_file:
+      - .env  # This automatically loads everything in your .env file 
     ports:
       - "8000:8000" # Maps local port 8000 to container port 80
     environment:
