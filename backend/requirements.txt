@@ -1,0 +1,5 @@
+chromadb==1.5.5
+pydantic-ai==1.67.0
+python-dotenv==1.2.2
+clickhouse-connect==0.14.1
+fastapi[standard]==0.135.1

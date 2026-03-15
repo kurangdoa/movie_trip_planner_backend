@@ -1,0 +1,28 @@
+# Python junk
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.env
+.pytest_cache/
+
+# Data (Crucial! Don't upload your local DBs)
+_chroma-data/
+_clickhouse-data/
+*.csv
+*.jsonl
+
+# Docker/Git junk
+.git/
+.gitignore
+docker-compose.yaml
+docker-compose.override.yml
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Frontend (if you have it)
+node_modules/
+.next/
+dist/
