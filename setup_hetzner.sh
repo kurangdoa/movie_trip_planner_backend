@@ -8,6 +8,8 @@ echo "🚀 Starting server setup..."
 # 1. Update system
 sudo apt update && sudo apt upgrade -y
 
+apt install make
+
 # 2. Setup Swap (Safety net for RAM)
 if [ ! -f /swapfile ]; then
     echo "💾 Creating 2GB Swap file..."

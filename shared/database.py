@@ -77,32 +77,32 @@ class ChromaClient:
 # clickhouse
 # --------------------
 
-class ClickHouseClient:
-    def __init__(
-        self,
-        host=os.getenv("CLICKHOUSE_HOST", "localhost"),
-        port=int(os.getenv("CLICKHOUSE_PORT", 8202)),
-        username=os.getenv("CLICKHOUSE_USER", "app_user"),
-        password=os.getenv("CLICKHOUSE_APP_PASS"),
-        database=os.getenv("CLICKHOUSE_DB", "hotel")
-    ):
-        """Initializes the connection to ClickHouse automatically."""
-        self.client = clickhouse_connect.get_client(
-            host=host,
-            port=port,
-            username=username,
-            password=password,
-            database=database
-        )
+# class ClickHouseClient:
+#     def __init__(
+#         self,
+#         host=os.getenv("CLICKHOUSE_HOST", "localhost"),
+#         port=int(os.getenv("CLICKHOUSE_PORT", 8202)),
+#         username=os.getenv("CLICKHOUSE_USER", "app_user"),
+#         password=os.getenv("CLICKHOUSE_APP_PASS"),
+#         database=os.getenv("CLICKHOUSE_DB", "hotel")
+#     ):
+#         """Initializes the connection to ClickHouse automatically."""
+#         self.client = clickhouse_connect.get_client(
+#             host=host,
+#             port=port,
+#             username=username,
+#             password=password,
+#             database=database
+#         )
 
-    def get_client(self):
-        """Returns the raw ClickHouse connection client."""
-        return self.client
+#     def get_client(self):
+#         """Returns the raw ClickHouse connection client."""
+#         return self.client
 
-    def create_clickhouse_table(self, table_name: str, query: str):
-        """
-        Drops the table if it exists, then executes the table creation query.
-        """
-        self.client.command(f"DROP TABLE IF EXISTS {table_name}")
-        self.client.command(query)
-        print(f"✅ Table '{table_name}' created successfully!")
+#     def create_clickhouse_table(self, table_name: str, query: str):
+#         """
+#         Drops the table if it exists, then executes the table creation query.
+#         """
+#         self.client.command(f"DROP TABLE IF EXISTS {table_name}")
+#         self.client.command(query)
+#         print(f"✅ Table '{table_name}' created successfully!")
