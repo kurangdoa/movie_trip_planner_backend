@@ -11,23 +11,23 @@ services:
       - "8000"
     restart: always
 
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    expose:
-      - "8000"
-    environment:
-      # Use the "Secret Name" Railway assigned to your project
-      - CHROMA_HOST=movie-trip-planner-chromadb
-      - CHROMA_PORT=8000
-      - CHROMA_SERVER_HOST=movie-trip-planner-chromadb
-    depends_on:
-      - chromadb
-    volumes:
-      - duckdb_data:/app/_duckdb-data
-    command: ["uv", "run", "fastapi", "run", "backend/main.py", "--port", "8000", "--host", "0.0.0.0"]
+#   backend:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#     expose:
+#       - "8000"
+#     environment:
+#       # Use the "Secret Name" Railway assigned to your project
+#       - CHROMA_HOST=movie-trip-planner-chromadb
+#       - CHROMA_PORT=8000
+#       - CHROMA_SERVER_HOST=movie-trip-planner-chromadb
+#     depends_on:
+#       - chromadb
+#     volumes:
+#       - duckdb_data:/app/_duckdb-data
+#     command: ["uv", "run", "fastapi", "run", "backend/main.py", "--port", "8000", "--host", "0.0.0.0"]
 
-volumes:
-  chroma_data:
-  duckdb_data:
+# volumes:
+#   chroma_data:
+#   duckdb_data:
