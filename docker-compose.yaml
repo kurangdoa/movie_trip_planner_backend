@@ -4,7 +4,7 @@ services:
     environment:
       - IS_PERSISTENT=TRUE
       - PERSIST_DIRECTORY=/data
-      - CHROMA_SERVER_HOST=movie-trip-planner-chromadb
+      - CHROMA_SERVER_HOST=0.0.0.0 # Tells Chroma to listen on all interfaces
     volumes:
       - chroma_data:/data
     expose:
