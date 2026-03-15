@@ -11,7 +11,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",   # Local browser access
-        "http://frontend:3000"     # Internal Docker network access
+        "http://frontend:3000",     # Internal Docker network access
+        "*",
     ],
     allow_methods=["*"],
     allow_headers=["*"],
