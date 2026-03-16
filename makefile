@@ -7,9 +7,18 @@ COMPOSE_FILE=docker-compose.yml
 up:
 	docker compose up -d
 
+up_local:
+	docker compose -f docker-compose-local.yaml up -d
+
+up_build:
+	docker compose up --build -d
+
 # Stop the service
 down:
 	docker compose down
+
+down_local:
+	docker compose -f docker-compose-local.yaml down
 
 # Restart the service (useful if you change the volumes or config)
 restart:

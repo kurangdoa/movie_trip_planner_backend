@@ -31,3 +31,6 @@ else
 fi
 
 echo "🎉 Setup complete! You can now run: docker compose up --build -d"
+
+# 3. docker network
+docker network create movie-network

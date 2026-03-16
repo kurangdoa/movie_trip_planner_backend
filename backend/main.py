@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from shared.schema import MovieHotelMatch, SearchDeps
 from backend.agent import run_orchestrator # Import your existing agent
 
@@ -21,6 +21,16 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     prompt: str
     city: str | None = None
+
+    # This forces Swagger UI to show this exact JSON box!
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "prompt": "Medieval feeling of Game of Thrones",
+                "city": "Amsterdam"
+            }
+        }
+    )
 
 @app.get("/")
 async def root():

@@ -1,6 +1,6 @@
 import os
 import duckdb
-from shared.database import ClickHouseClient, ChromaClient
+from shared.database import ChromaClient # ClickHouseClient,
 from shared.schema import AirbnbListing
 
 # print("🔌 Connecting to databases...")

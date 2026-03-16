@@ -41,29 +41,6 @@ services:
     networks:
       - movie-network
 
-# clickhouse:
-  #   image: clickhouse/clickhouse-server:26.2.4
-  #   volumes:
-  #     - ./_clickhouse-data:/var/lib/clickhouse
-  #   ports:
-  #     - "8202:8123" #ui http://localhost:8202/play
-  #     - "9000:9000"
-  #   environment:
-  #     - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 
-  #     - CLICKHOUSE_DB=hotel_movie
-  #     - CLICKHOUSE_USER=app_user
-  #     - CLICKHOUSE_PASSWORD=${CLICKHOUSE_APP_PASS}
-  #   ulimits:
-  #     nofile:
-  #       soft: 262144
-  #       hard: 262144
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 8G
-  #       reservations:
-  #         memory: 4G
-
 volumes:
   chroma_data:
   duckdb_data:
@@ -71,7 +48,3 @@ volumes:
 networks:
   movie-network:
     external: true
-
-  
-
-  
