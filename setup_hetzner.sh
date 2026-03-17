@@ -34,3 +34,7 @@ echo "🎉 Setup complete! You can now run: docker compose up --build -d"
 
 # 3. docker network
 docker network create movie-network
+
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw status

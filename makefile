@@ -7,9 +7,6 @@ COMPOSE_FILE=docker-compose.yml
 up:
 	docker compose up -d
 
-up_local:
-	docker compose -f docker-compose-local.yaml up -d
-
 up_build:
 	docker compose up --build -d
 
@@ -77,3 +74,10 @@ fastapi_docker_build:
 # Runs the container locally to test the production build
 fastapi_docker_run_container:
 	docker run -p 8000:80 --env-file backend/.env movie-planner-backend
+
+# ----------
+# duckdb
+# ----------
+
+duckdb_docker:
+	docker compose exec backend duckdb /app/_duckdb-data/hotel_movie.db

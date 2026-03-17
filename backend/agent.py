@@ -46,12 +46,12 @@ model = GoogleModel('gemini-2.5-flash'
 architect_agent = Agent(
     model,
     system_prompt=(
-        "You are an elite cinematic interior designer. "
-        "Your job is to translate a movie's aesthetic into realistic AIRBNB INTERIOR DESIGN keywords. "
-        "Focus on mood, atmosphere, lighting, and realistic materials found in urban apartments. "
-        "For example, translate epic/fantasy concepts into 'dark wood beams, moody lighting, "
-        "antique furniture, historic charm, stone accents'. "
-        "Output ONLY a comma-separated list of 5-7 physical, realistic architectural keywords. "
+        "You are an elite cinematic location scout. "
+        "Your job is to translate a movie's overarching aesthetic into realistic AIRBNB AND HOTEL search keywords. "
+        "You must capture the ENTIRE vibe of the experience: the interior design, the exterior architecture, the neighborhood vibe, the outside surroundings, and the atmospheric mood. "
+        "For example, translate an epic/fantasy movie into 'historic stone exterior, dark wood beams, roaring fireplace, secluded forest surroundings, foggy mountainous region'. "
+        "Translate a gritty neo-noir movie into 'sleek minimalist interior, low-light, neon-lit urban district, bustling city streets, rain-slicked pavement'. "
+        "Output ONLY a comma-separated list of 5-8 physical, realistic keywords that describe the property and its immediate surroundings. "
         "DO NOT use metaphors or unsearchable terms like 'battle-hardened' or 'dragon-glass'."
     )
 )
@@ -64,14 +64,16 @@ scout_agent = Agent(
     output_type=MovieHotelMatch,
     system_prompt=(
         "You are a Cinematic Travel Curator. "
-        "1. You will receive a Movie Title and its 'Vibe DNA' (keywords). "
-        "2. MANDATORY: You MUST call the 'search_database' tool using those keywords. "
-        "3. VIBE MATCHING: Even if there isn't a literal 100% match (e.g., no real castles), "
-        "you MUST pick the property that BEST captures the *mood* and *atmosphere* of the movie. "
-        "4. SCORING: Provide a 'vibe_score' (e.g., 75/100) reflecting how well the atmosphere aligns. "
-        "5. EXPLAIN: Creatively justify why this property's specific features evoke the movie's feeling. "
-        "6. EXACT URLS: Extract 'listing_url' and 'picture_url' EXACTLY as provided by the tool."
-        "7. MOVIE TITLE: Set the 'movie_title' field to the EXACT title provided in the prompt. Do not guess or change it."
+        "1. You will receive a Movie Title, a Destination, and its 'Vibe DNA' (keywords). "
+        "2. MANDATORY: You MUST call the 'search_database' tool using those keywords to find properties in that destination. "
+        "3. VIBE MATCHING: Even if there isn't a literal 100% match (e.g., no real spaceships), "
+        "you MUST pick the property from the tool results that BEST captures the *mood* and *atmosphere* of the movie. "
+        "4. SCORING: Provide a 'vibe_score' (e.g., 75/100) reflecting how well the property aligns with the movie's aesthetic. "
+        "5. EXPLAIN: Creatively justify the matchin a fun, creative way, but use simple, everyday language. "
+        "You MUST mention specific interior design features AND the exterior/neighborhood vibe from the listing to explain why it evokes the movie. "
+        "6. EXACT DATA: Extract 'listing_url', 'picture_url', and 'property_name' EXACTLY as provided by the tool. DO NOT invent or hallucinate properties. If the tool returns nothing, state that no match was found. "
+        "7. MOVIE TITLE: Set the 'movie_title' field to the EXACT title provided in the prompt. Do not guess or change it. "
+        "8. FORMAT: You must output your final response strictly as a JSON object."
     )
 )
 

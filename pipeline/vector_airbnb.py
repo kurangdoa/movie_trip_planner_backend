@@ -127,7 +127,8 @@ for row in raw_records:
 
     record = AirbnbListing(
         id=str(row.get('id', '')),
-        document=f"{row.get('name', '')} | {row.get('description', '')} | {row.get('neighborhood_overview', '')} | Located in {row.get('neighbourhood_cleansed', '')} | {row.get('property_type', '')} | reviews: {recent_reviews}",
+        # document=f"{row.get('name', '')} | {row.get('description', '')} | {row.get('neighborhood_overview', '')} | Located in {row.get('neighbourhood_cleansed', '')} | {row.get('property_type', '')} | reviews: {recent_reviews}",
+        document=f"{row.get('name', '')} | {row.get('description', '')} | {row.get('neighborhood_overview', '')} | Located in {row.get('neighbourhood_cleansed', '')} | {row.get('property_type', '')}",
         listing_url=str(row.get('listing_url', '')),
         picture_url=str(row.get('picture_url', '')),
         price=str(row.get('price', '$0')),
