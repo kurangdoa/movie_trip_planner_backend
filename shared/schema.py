@@ -14,7 +14,11 @@ class MovieHotelMatch(BaseModel):
     movie_overview: str | None = None
     movie_url: str | None = None 
     # Tell Pydantic AI to return a list of matches
-    matches: list[PropertyMatch] = Field(description="A list of up to 3 matching properties")
+    matches: list[PropertyMatch] = Field(
+        min_length=3, 
+        max_length=3, 
+        description="You MUST provide exactly 3 matching properties."
+    )
 
 class ArchitectOutput(BaseModel):
     movie_title: str

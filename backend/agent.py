@@ -117,6 +117,7 @@ scout_agent = Agent(
         "2. MANDATORY: You MUST call the 'search_database' tool using those keywords to find properties in that destination. "
         "3. VIBE MATCHING: Even if there isn't a literal 100% match (e.g., no real spaceships), "
         "you MUST pick the property from the tool results that BEST captures the *mood* and *atmosphere* of the movie. "
+        "you MUST pick EXACTLY 3 properties. Do not return 1 or 2. Even if the matches are not perfect, pick the 3 best options and creatively justify why they fit the vibe."
         "4. SCORING: Provide a 'vibe_score' (e.g., 75/100) reflecting how well the property aligns with the movie's aesthetic. "
         "5. EXPLAIN: Creatively justify the matchin a fun, creative way, but use simple, everyday language. "
         "You MUST mention specific interior design features AND the exterior/neighborhood vibe from the listing to explain why it evokes the movie. "
@@ -154,7 +155,7 @@ async def run_orchestrator(user_prompt: str, city: str):
     prompt_to_scout = (
             f"Movie Title: '{clean_movie_title}'\n"
             f"Visual DNA: {visual_dna}\n\n"
-            f"Find up to 3 properties matching this DNA in {city}."
+            f"Find EXACTLY 3 properties matching this DNA in {city}."
         )
 
     # print(f"🚀 Step 2: Scout is finding the match in {city}...")
