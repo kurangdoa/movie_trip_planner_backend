@@ -1,0 +1,76 @@
+services:
+
+  chromadb-local:
+    container_name: chromadb-local
+    image: chromadb/chroma:1.5.3
+    volumes:
+      - chroma_data:/data
+    ports:
+      - "8201:8000"
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: always
+    networks:
+      - movie-network
+
+  backend-local:
+    container_name: backend-local
+    build:
+      context: .              
+      dockerfile: Dockerfile
+    env_file:
+      - .env  
+    ports:
+      - "8000:8000" 
+    environment:
+      - CHROMA_HOST=chromadb  
+      - CHROMA_PORT=8201     
+    depends_on:
+      - chromadb-local
+    volumes:
+      - ./_duckdb-data:/app/_duckdb-data
+      - .:/app
+      - /app/.venv  
+    command: ["uv", "run", "fastapi", "dev", "backend/main.py", "--port", "8000", "--host", "0.0.0.0"]
+    networks:
+      - movie-network
+
+# clickhouse:
+  #   image: clickhouse/clickhouse-server:26.2.4
+  #   volumes:
+  #     - ./_clickhouse-data:/var/lib/clickhouse
+  #   ports:
+  #     - "8202:8123" #ui http://localhost:8202/play
+  #     - "9000:9000"
+  #   environment:
+  #     - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 
+  #     - CLICKHOUSE_DB=hotel_movie
+  #     - CLICKHOUSE_USER=app_user
+  #     - CLICKHOUSE_PASSWORD=${CLICKHOUSE_APP_PASS}
+  #   ulimits:
+  #     nofile:
+  #       soft: 262144
+  #       hard: 262144
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 8G
+  #       reservations:
+  #         memory: 4G
+
+volumes:
+  chroma_data:
+
+networks:
+  movie-network:
+    external: true
+
+  
+
+  

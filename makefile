@@ -10,6 +10,9 @@ up:
 up_build:
 	docker compose up --build -d
 
+up_build_local:
+	docker compose -f docker-compose-local.yaml up --build -d
+
 # Stop the service
 down:
 	docker compose down
@@ -46,6 +49,12 @@ clean:
 
 example_chroma:
 	uv run example/chroma.py
+
+pipeline_ingestion_airbnb_duckdb:
+	uv run python pipeline/ingestion_airbnb_duckdb.py
+
+pipeline_vector_airbnb:
+	uv run python pipeline/vector_airbnb.py
 
 agent_test:
 	uv run backend/agent.py

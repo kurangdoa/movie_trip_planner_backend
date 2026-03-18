@@ -1,7 +1,8 @@
 import asyncio
 from pydantic_ai import Agent, RunContext, UsageLimits
-from shared.schema import MovieHotelMatch, SearchDeps
+from shared.schema import ArchitectOutput, MovieHotelMatch, SearchDeps
 from shared.database import ChromaClient
+import httpx
 import os
 from dotenv import load_dotenv
 
@@ -30,6 +31,50 @@ from pydantic_ai.providers.openai import OpenAIProvider
 #     provider=OpenRouterProvider(api_key=os.getenv("OPENROUTER_API_KEY"))
 # )
 
+async def get_tmdb_details(movie_title: str) -> str:
+    """Search TMDB for a movie and return the full poster URL."""
+    tmdb_api_key = os.getenv("TMDB_API_KEY")
+    tmdb_api_read_access_token = os.getenv("TMDB_API_READ_ACCESS_TOKEN")
+    base_url = "https://api.themoviedb.org/3"
+    image_base = "https://image.tmdb.org/t/p/w500" # w500 is a good size for web
+    fallback = {"poster": "https://via.placeholder.com/500x750?text=No+Poster+Found", "overview": "No overview available.", "movie_url": ""}
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            # Step 1: Search for the movie
+            search_res = await client.get(
+                f"{base_url}/search/multi",
+                headers = {
+                        "Authorization": f"Bearer {tmdb_api_read_access_token}",
+                        "Content-Type": "application/json"
+                    },
+                params={"api_key": tmdb_api_key, "query": movie_title}
+            )
+            data = search_res.json()
+
+            results = data.get("results", [])
+            if results:
+                # Sort so the actual famous movie/show is at the top of the list
+                results.sort(key=lambda x: x.get("popularity", 0), reverse=True)
+                
+                # Grab the first one that has a valid poster
+                for res in results:
+                    poster_path = res.get("poster_path")
+                    if poster_path:
+                        media_type = res.get("media_type", "movie")
+                        item_id = res.get("id")
+                        movie_url = f"https://www.themoviedb.org/{media_type}/{item_id}" if item_id else ""
+
+                        return {
+                            "poster": f"{image_base}{poster_path}",
+                            "overview": res.get("overview", "No overview available."),
+                            "movie_url": movie_url
+                        }
+            return fallback
+        except Exception as e:
+            print(f"TMDB Error: {e}")
+            return fallback
+
 model = GoogleModel('gemini-2.5-flash'
                         #'gemini-2.5-flash'
                         #'gemini-2.5-pro'
@@ -45,14 +90,18 @@ model = GoogleModel('gemini-2.5-flash'
 # Goal: Translate "Movie Title" -> "Interior Design Keywords"
 architect_agent = Agent(
     model,
+    output_type=ArchitectOutput,
     system_prompt=(
         "You are an elite cinematic location scout. "
-        "Your job is to translate a movie's overarching aesthetic into realistic AIRBNB AND HOTEL search keywords. "
+        "Your job is two-fold: "
+        "1. Identify the ACTUAL movie title from the user's prompt (remove descriptions like 'vibe of' or 'feeling like'). "
+        "2. Your other job is to translate a movie's overarching aesthetic into realistic AIRBNB AND HOTEL search keywords. "
         "You must capture the ENTIRE vibe of the experience: the interior design, the exterior architecture, the neighborhood vibe, the outside surroundings, and the atmospheric mood. "
         "For example, translate an epic/fantasy movie into 'historic stone exterior, dark wood beams, roaring fireplace, secluded forest surroundings, foggy mountainous region'. "
         "Translate a gritty neo-noir movie into 'sleek minimalist interior, low-light, neon-lit urban district, bustling city streets, rain-slicked pavement'. "
         "Output ONLY a comma-separated list of 5-8 physical, realistic keywords that describe the property and its immediate surroundings. "
         "DO NOT use metaphors or unsearchable terms like 'battle-hardened' or 'dragon-glass'."
+        "Output ONLY the JSON with 'movie_title' and 'visual_dna'."
     )
 )
 
@@ -89,41 +138,70 @@ async def search_database(ctx: RunContext[SearchDeps], visual_description: str) 
     )
 
 # --- 4. THE ORCHESTRATION LOGIC ---
-async def run_orchestrator(movie_title: str, city: str):
-    print(f"🎨 Step 1: Architect is building visual DNA for '{movie_title}'...")
-    vibe_result = await architect_agent.run(movie_title
+async def run_orchestrator(user_prompt: str, city: str):
+    print(f"🎨 Step 1: Architect is building visual DNA for prompt '{user_prompt}'...")
+    vibe_result = await architect_agent.run(user_prompt
                                             , model_settings={"temperature": 0.3}
                                             )
-    visual_dna = vibe_result.output
+    
+    clean_movie_title = vibe_result.output.movie_title
+    visual_dna = vibe_result.output.visual_dna
+    
+    print(f"🎬 Clean Title: {clean_movie_title}")
     print(f"🧬 DNA Created: {visual_dna}")
 
     # 🚀 THE FIX: Pass the movie title into the prompt!
-    prompt_to_scout = f"Movie Title: '{movie_title}'\nVisual DNA: {visual_dna}\n\nFind a property matching this DNA in {city}."
+    prompt_to_scout = (
+            f"Movie Title: '{clean_movie_title}'\n"
+            f"Visual DNA: {visual_dna}\n\n"
+            f"Find up to 3 properties matching this DNA in {city}."
+        )
 
-    print(f"🚀 Step 2: Scout is finding the match in {city}...")
-    final_result = await scout_agent.run(
+    # print(f"🚀 Step 2: Scout is finding the match in {city}...")
+    # final_result = await scout_agent.run(
+    #     prompt_to_scout,
+    #     deps=SearchDeps(city=city),
+    #     # model_settings={"max_tokens": 1000},
+    #     usage_limits=UsageLimits(request_limit=5),
+    # )
+
+    scout_task = scout_agent.run(
         prompt_to_scout,
         deps=SearchDeps(city=city),
-        # model_settings={"max_tokens": 1000},
         usage_limits=UsageLimits(request_limit=5),
     )
+    tmdb_task = get_tmdb_details(clean_movie_title)
     
-    return final_result.output
+    scout_run_result, tmdb_info = await asyncio.gather(scout_task, tmdb_task)
+
+    final_match = scout_run_result.output
+    
+    final_match.movie_poster = tmdb_info["poster"]
+    final_match.movie_overview = tmdb_info["overview"]
+    final_match.movie_url = tmdb_info["movie_url"]
+    
+    final_match.movie_title = clean_movie_title
+    final_match.user_prompt = user_prompt
+    
+    return final_match
 
 # --- TEST BLOCK ---
 if __name__ == "__main__":
     async def test():
         match = await run_orchestrator("game of thrones", "Amsterdam")
-        print(f"\n✅ MATCH FOUND: {match.hotel_id} - {match.explanation}")
-            # Extract the typed Pydantic object
         
-        # Print it out beautifully
         print("\n" + "="*50)
         print(f"🍿 MOVIE: {match.movie_title}")
-        print(f"🏨 SCORE: {match.vibe_score}/100")
-        print(f"📝 VIBE CHECK: {match.explanation}")
-        print(f"🔗 BOOK IT: {match.listing_url}")
-        print(f"🖼️ SEE IT: {match.picture_url}")
+        print(f"🖼️ POSTER: {match.movie_poster}")
+        print(f"🏨 FOUND {len(match.matches)} MATCHES:")
+        
+        # 🟢 UPDATED: Loop through the 3 matches
+        for idx, prop in enumerate(match.matches, 3):
+            print(f"\n  --- Match #{idx} ---")
+            print(f"  Score: {prop.vibe_score}/100")
+            print(f"  Vibe Check: {prop.explanation}")
+            print(f"  Book It: {prop.listing_url}")
+            
         print("="*50 + "\n")
 
     asyncio.run(test())

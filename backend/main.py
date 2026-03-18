@@ -41,7 +41,7 @@ async def get_recommendation(request: ChatRequest):
     try:
         # Run your Pydantic AI Agent
         result = await run_orchestrator(
-                        movie_title=request.prompt, 
+                        user_prompt=request.prompt, 
                         city=request.city
         )
         return result

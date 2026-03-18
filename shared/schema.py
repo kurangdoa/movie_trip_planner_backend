@@ -1,15 +1,25 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dataclasses import dataclass
-
-class MovieHotelMatch(BaseModel):
+class PropertyMatch(BaseModel):
     hotel_id: str
-    movie_title: str
-    explanation: str
     vibe_score: int
+    explanation: str
     listing_url: str
     picture_url: str
-    
-# 1. We validate the ENTIRE row from Pandas
+
+class MovieHotelMatch(BaseModel):
+    user_prompt: str | None = None
+    movie_title: str
+    movie_poster: str | None = None
+    movie_overview: str | None = None
+    movie_url: str | None = None 
+    # Tell Pydantic AI to return a list of matches
+    matches: list[PropertyMatch] = Field(description="A list of up to 3 matching properties")
+
+class ArchitectOutput(BaseModel):
+    movie_title: str
+    visual_dna: str
+
 class AirbnbListing(BaseModel):
     id: str
     document: str  # The AI search text
@@ -20,7 +30,6 @@ class AirbnbListing(BaseModel):
     neighborhood: str
     city: str
 
-    # 2. We add a helper method to easily extract just the metadata for Chroma
     def get_metadata(self) -> dict:
         return {
             "listing_url": self.listing_url,
