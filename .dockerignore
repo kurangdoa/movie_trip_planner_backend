@@ -9,6 +9,9 @@ __pycache__/
 # Data (Crucial! Don't upload your local DBs)
 _chroma-data/
 _clickhouse-data/
+_backup/
+_duckdb-data/
+_temp/
 *.csv
 *.jsonl
 

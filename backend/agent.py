@@ -123,13 +123,13 @@ scout_agent = Agent(
         "You MUST mention specific interior design features AND the exterior/neighborhood vibe from the listing to explain why it evokes the movie. "
         "6. EXACT DATA: Extract 'listing_url', 'picture_url', and 'property_name' EXACTLY as provided by the tool. DO NOT invent or hallucinate properties. If the tool returns nothing, state that no match was found. "
         "7. MOVIE TITLE: Set the 'movie_title' field to the EXACT title provided in the prompt. Do not guess or change it. "
-        "8. FORMAT: You must output your final response strictly as a JSON object."
+        "8. FORMAT: You must output exactly 3 items in your matches list."
     )
 )
 
 @scout_agent.tool
 async def search_database(ctx: RunContext[SearchDeps], visual_description: str) -> list[dict]:
-    normalized_city = ctx.deps.city.lower()
+    normalized_city = ctx.deps.city
     print(f"🕵️ Scout searching in {normalized_city} for DNA: {visual_description}")
     return chroma_db.search_chroma_airbnb_by_vibe(
         collection_name="airbnb_listing",

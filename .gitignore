@@ -14,3 +14,4 @@ _chroma-data/
 _clickhouse-data/
 _duckdb-data/
 _backup/
+_temp/

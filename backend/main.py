@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict
 from shared.schema import MovieHotelMatch, SearchDeps
+import duckdb
+import os
 from backend.agent import run_orchestrator # Import your existing agent
 
 app = FastAPI()
@@ -47,3 +49,18 @@ async def get_recommendation(request: ChatRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/cities")
+def get_cities():
+    DATA_DIR = "_duckdb-data"
+    db_path = os.path.join(DATA_DIR, "hotel_movie.db")
+    
+    # 1. Use read_only=True to prevent Docker/API lock crashes
+    # 2. Use 'with' so Python automatically runs db.close() when finished!
+    with duckdb.connect(db_path, read_only=True) as db:
+        query = "SELECT DISTINCT city FROM airbnb_listing_raw WHERE city IS NOT NULL ORDER BY city"
+        results = db.execute(query).fetchall()
+        
+        cities = [row[0] for row in results]
+    
+    return {"cities": cities}

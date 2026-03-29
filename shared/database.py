@@ -11,12 +11,12 @@ load_dotenv()
 
 class ChromaClient:
     """Chroma Class"""
-    def __init__(self
-                 , host=os.getenv("CHROMA_HOST", "localhost")
-                 , port=int(os.getenv("CHROMA_PORT", 8201))
-                 ):
+    def __init__(self):
         """Initializes the connection to ChromaDB automatically."""
-
+        
+        host = os.getenv("CHROMA_HOST", "localhost")
+        # If we are in Docker, it will use 8000. If local, it falls back to 8201.
+        port = int(os.getenv("CHROMA_PORT", 8201))
         self.client = chromadb.HttpClient(host=host, port=port)
 
     def get_chroma_collection(self, collection_name: str):

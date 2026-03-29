@@ -11,6 +11,7 @@ up_build:
 	docker compose up --build -d
 
 up_build_local:
+	docker network inspect movie-network >/dev/null 2>&1 || docker network create movie-network
 	docker compose -f docker-compose-local.yaml up --build -d
 
 # Stop the service

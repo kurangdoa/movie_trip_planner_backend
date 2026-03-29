@@ -29,8 +29,8 @@ services:
     ports:
       - "8000:8000" 
     environment:
-      - CHROMA_HOST=chromadb  
-      - CHROMA_PORT=8201     
+      - CHROMA_HOST=chromadb-local
+      - CHROMA_PORT=8000
     depends_on:
       - chromadb-local
     volumes:
@@ -70,7 +70,3 @@ volumes:
 networks:
   movie-network:
     external: true
-
-  
-
-  
