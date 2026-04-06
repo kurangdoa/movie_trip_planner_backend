@@ -45,6 +45,11 @@ heartbeat:
 # Clean up: stops containers and removes the chroma-data volume (WARNING: deletes data)
 clean:
 	docker compose down -v
+	docker system prune
+
+clean_all:
+	docker compose down -v
+	docker system prune -a
 	rm -rf ./_chroma-data
 	rm -rf ./_clickhouse-data
 

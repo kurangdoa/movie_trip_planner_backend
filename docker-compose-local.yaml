@@ -27,7 +27,7 @@ services:
     env_file:
       - .env  
     ports:
-      - "8000:8000" 
+      - "8203:8000" 
     environment:
       - CHROMA_HOST=chromadb-local
       - CHROMA_PORT=8000
@@ -40,6 +40,8 @@ services:
     command: ["uv", "run", "fastapi", "dev", "backend/main.py", "--port", "8000", "--host", "0.0.0.0"]
     networks:
       - movie-network
+      - langfuse_default
+      - mlflow-network
 
 # clickhouse:
   #   image: clickhouse/clickhouse-server:26.2.4
@@ -69,4 +71,8 @@ volumes:
 
 networks:
   movie-network:
+    external: true
+  langfuse_default:
+    external: true
+  mlflow-network:
     external: true

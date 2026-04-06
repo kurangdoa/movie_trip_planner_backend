@@ -4,12 +4,15 @@ from shared.schema import ArchitectOutput, MovieHotelMatch, SearchDeps
 from shared.database import ChromaClient
 import httpx
 import os
+import mlflow
 from dotenv import load_dotenv
 
 load_dotenv()
 
 chroma_db = ChromaClient()
 
+from langfuse import get_client
+from langfuse import Langfuse, observe
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.models.google import GoogleModel
@@ -19,6 +22,24 @@ from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.providers.anthropic import AnthropicProvider
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+
+
+# mlflow
+mlflow.pydantic_ai.autolog()
+tracking_uri = mlflow.get_tracking_uri()
+print(f"Current tracking uri: {tracking_uri}")
+mlflow.set_experiment("movie-trip")
+
+# langfuse
+langfuse = get_client()
+ 
+# Verify connection
+if langfuse.auth_check():
+    print("Langfuse client is authenticated and ready!")
+else:
+    print("Authentication failed. Please check your credentials and host.")
+
+
 
 # model = OpenAIChatModel('gpt-4o-mini', provider=OpenAIProvider(api_key=os.getenv("OPENAI_API_KEY")))
 
@@ -88,10 +109,17 @@ model = GoogleModel('gemini-2.5-flash'
 
 # --- 2. THE ARCHITECT (AGENT A) ---
 # Goal: Translate "Movie Title" -> "Interior Design Keywords"
-architect_agent = Agent(
-    model,
-    output_type=ArchitectOutput,
-    system_prompt=(
+
+langfuse = Langfuse()
+
+try:
+    lf_architect = langfuse.get_prompt("movie-trip/architect_prompt", label="production")
+    lf_scout = langfuse.get_prompt("movie-trip/scout_prompt", label="production")
+    architect_prompt_text = lf_architect.compile()
+    scout_prompt_text = lf_scout.compile()
+
+except Exception as e:
+    architect_prompt_text = (
         "You are an elite cinematic location scout. "
         "Your job is two-fold: "
         "1. Identify the ACTUAL movie title from the user's prompt (remove descriptions like 'vibe of' or 'feeling like'). "
@@ -102,16 +130,8 @@ architect_agent = Agent(
         "Output ONLY a comma-separated list of 5-8 physical, realistic keywords that describe the property and its immediate surroundings. "
         "DO NOT use metaphors or unsearchable terms like 'battle-hardened' or 'dragon-glass'."
         "Output ONLY the JSON with 'movie_title' and 'visual_dna'."
-    )
-)
-
-# --- 3. THE SCOUT (AGENT B - THE ORCHESTRATOR) ---
-# Goal: Take keywords -> Search Database -> Pick Winner
-scout_agent = Agent(
-    model,
-    deps_type=SearchDeps,
-    output_type=MovieHotelMatch,
-    system_prompt=(
+    ) 
+    scout_prompt_text=(
         "You are a Cinematic Travel Curator. "
         "1. You will receive a Movie Title, a Destination, and its 'Vibe DNA' (keywords). "
         "2. MANDATORY: You MUST call the 'search_database' tool using those keywords to find properties in that destination. "
@@ -124,7 +144,27 @@ scout_agent = Agent(
         "6. EXACT DATA: Extract 'listing_url', 'picture_url', and 'property_name' EXACTLY as provided by the tool. DO NOT invent or hallucinate properties. If the tool returns nothing, state that no match was found. "
         "7. MOVIE TITLE: Set the 'movie_title' field to the EXACT title provided in the prompt. Do not guess or change it. "
         "8. FORMAT: You must output exactly 3 items in your matches list."
-    )
+    ),
+
+
+# Agent.instrument_all()
+architect_agent = Agent(
+    model,
+    output_type=ArchitectOutput,
+    name="architect_agent",
+    system_prompt=architect_prompt_text,
+    instrument=True
+)
+
+# --- 3. THE SCOUT (AGENT B - THE ORCHESTRATOR) ---
+# Goal: Take keywords -> Search Database -> Pick Winner
+scout_agent = Agent(
+    model,
+    deps_type=SearchDeps,
+    output_type=MovieHotelMatch,
+    name="scout_agent",
+    system_prompt=scout_prompt_text,
+    instrument=True
 )
 
 @scout_agent.tool
@@ -138,12 +178,31 @@ async def search_database(ctx: RunContext[SearchDeps], visual_description: str) 
         city=normalized_city
     )
 
+# --- 3. THE V3 TRACKING WRAPPERS ---
+@mlflow.trace(name="architect_generation")
+@observe(as_type="generation", name="architect_generation")
+async def run_architect_with_tracking(user_prompt: str):
+    # 🔗 Langfuse v3: Call update directly on the client!
+    langfuse.update_current_generation(prompt=lf_architect)
+    return await architect_agent.run(user_prompt, model_settings={"temperature": 0.3})
+
+@mlflow.trace(name="scout_generation")
+@observe(as_type="generation", name="scout_generation")
+async def run_scout_with_tracking(prompt_to_scout: str, city: str):
+    # 🔗 Langfuse v3: Call update directly on the client!
+    langfuse.update_current_generation(prompt=lf_scout)
+    return await scout_agent.run(
+        prompt_to_scout,
+        deps=SearchDeps(city=city),
+        usage_limits=UsageLimits(request_limit=5)
+    )
+
 # --- 4. THE ORCHESTRATION LOGIC ---
+@mlflow.trace(name="movie_trip_orchestrator")
+@observe(name="movie_trip_orchestrator")
 async def run_orchestrator(user_prompt: str, city: str):
     print(f"🎨 Step 1: Architect is building visual DNA for prompt '{user_prompt}'...")
-    vibe_result = await architect_agent.run(user_prompt
-                                            , model_settings={"temperature": 0.3}
-                                            )
+    vibe_result = await run_architect_with_tracking(user_prompt)
     
     clean_movie_title = vibe_result.output.movie_title
     visual_dna = vibe_result.output.visual_dna
@@ -166,11 +225,7 @@ async def run_orchestrator(user_prompt: str, city: str):
     #     usage_limits=UsageLimits(request_limit=5),
     # )
 
-    scout_task = scout_agent.run(
-        prompt_to_scout,
-        deps=SearchDeps(city=city),
-        usage_limits=UsageLimits(request_limit=5),
-    )
+    scout_task = run_scout_with_tracking(prompt_to_scout, city)
     tmdb_task = get_tmdb_details(clean_movie_title)
     
     scout_run_result, tmdb_info = await asyncio.gather(scout_task, tmdb_task)
