@@ -52,6 +52,58 @@ else:
 #     provider=OpenRouterProvider(api_key=os.getenv("OPENROUTER_API_KEY"))
 # )
 
+def get_or_create_prompt_langfuse(prompt_name: str, default_text: str):
+    try:
+        # 1. Try to fetch the live version from Langfuse
+        prompt = langfuse.get_prompt(prompt_name, label="production")
+        print(f"✅ Successfully loaded '{prompt_name}' from Langfuse.")
+        return prompt
+        
+    except Exception:
+        # 2. If it fails (doesn't exist), create it via the SDK!
+        print(f"⚠️ '{prompt_name}' not found. Creating it in Langfuse now...")
+        
+        prompt = langfuse.create_prompt(
+            name=prompt_name,
+            type="text", # Use "chat" if you are passing a list of message dicts
+            prompt=default_text,
+            labels=["production"] # Instantly tag it as the live version
+        )
+        
+        print(f"✅ Successfully created and pushed '{prompt_name}'!")
+        return prompt
+
+def get_or_create_prompt_mlflow(prompt_name: str, default_text: str):
+    # MLflow uses URI syntax to target specific aliases
+    uri = f"prompts:/{prompt_name}@production"
+    
+    try:
+        # 1. Try to fetch the live version from MLflow Prompt Registry
+        prompt = mlflow.genai.load_prompt(name_or_uri=uri)
+        print(f"✅ Successfully loaded '{prompt_name}' from MLflow.")
+        return prompt
+        
+    except Exception:
+        # 2. If it fails (doesn't exist), create it via the SDK!
+        print(f"⚠️ '{prompt_name}' not found. Creating it in MLflow now...")
+        
+        # Register the new prompt template
+        prompt_version = mlflow.genai.register_prompt(
+            name=prompt_name,
+            template=default_text,
+            commit_message="Auto-provisioned default prompt"
+        )
+        
+        # Instantly tag it as the live "production" version
+        mlflow.genai.set_prompt_alias(
+            name=prompt_name, 
+            alias="production", 
+            version=prompt_version.version
+        )
+        
+        print(f"✅ Successfully created and pushed '{prompt_name}' (v{prompt_version.version})!")
+        return mlflow.genai.load_prompt(name_or_uri=uri)
+
 async def get_tmdb_details(movie_title: str) -> str:
     """Search TMDB for a movie and return the full poster URL."""
     tmdb_api_key = os.getenv("TMDB_API_KEY")
@@ -112,17 +164,10 @@ model = GoogleModel('gemini-2.5-flash'
 
 langfuse = Langfuse()
 
-try:
-    lf_architect = langfuse.get_prompt("movie-trip/architect_prompt", label="production")
-    lf_scout = langfuse.get_prompt("movie-trip/scout_prompt", label="production")
-    architect_prompt_text = lf_architect.compile()
-    scout_prompt_text = lf_scout.compile()
-
-except Exception as e:
-    architect_prompt_text = (
+DEFAULT_ARCHITECT = (
         "You are an elite cinematic location scout. "
         "Your job is two-fold: "
-        "1. Identify the ACTUAL movie title from the user's prompt (remove descriptions like 'vibe of' or 'feeling like'). "
+        "1. Identify the ACTUAL movie title from the {{user_prompt}} (remove descriptions like 'vibe of' or 'feeling like'). "
         "2. Your other job is to translate a movie's overarching aesthetic into realistic AIRBNB AND HOTEL search keywords. "
         "You must capture the ENTIRE vibe of the experience: the interior design, the exterior architecture, the neighborhood vibe, the outside surroundings, and the atmospheric mood. "
         "For example, translate an epic/fantasy movie into 'historic stone exterior, dark wood beams, roaring fireplace, secluded forest surroundings, foggy mountainous region'. "
@@ -131,9 +176,9 @@ except Exception as e:
         "DO NOT use metaphors or unsearchable terms like 'battle-hardened' or 'dragon-glass'."
         "Output ONLY the JSON with 'movie_title' and 'visual_dna'."
     ) 
-    scout_prompt_text=(
+DEFAULT_SCOUT = (
         "You are a Cinematic Travel Curator. "
-        "1. You will receive a Movie Title, a Destination, and its 'Vibe DNA' (keywords). "
+        "1. You will receive {{user_prompt}} contains Movie Title, a Destination, and its 'Vibe DNA' (keywords). "
         "2. MANDATORY: You MUST call the 'search_database' tool using those keywords to find properties in that destination. "
         "3. VIBE MATCHING: Even if there isn't a literal 100% match (e.g., no real spaceships), "
         "you MUST pick EXACTLY 3 properties from the tool results that BEST captures the *mood* and *atmosphere* of the movie. "
@@ -144,52 +189,94 @@ except Exception as e:
         "6. EXACT DATA: Extract 'listing_url', 'picture_url', and 'property_name' EXACTLY as provided by the tool. DO NOT invent or hallucinate properties. If the tool returns nothing, state that no match was found. "
         "7. MOVIE TITLE: Set the 'movie_title' field to the EXACT title provided in the prompt. Do not guess or change it. "
         "8. FORMAT: You must output exactly 3 items in your matches list."
-    ),
-
-
-# Agent.instrument_all()
-architect_agent = Agent(
-    model,
-    output_type=ArchitectOutput,
-    name="architect_agent",
-    system_prompt=architect_prompt_text,
-    instrument=True
-)
-
-# --- 3. THE SCOUT (AGENT B - THE ORCHESTRATOR) ---
-# Goal: Take keywords -> Search Database -> Pick Winner
-scout_agent = Agent(
-    model,
-    deps_type=SearchDeps,
-    output_type=MovieHotelMatch,
-    name="scout_agent",
-    system_prompt=scout_prompt_text,
-    instrument=True
-)
-
-@scout_agent.tool
-async def search_database(ctx: RunContext[SearchDeps], visual_description: str) -> list[dict]:
-    normalized_city = ctx.deps.city
-    print(f"🕵️ Scout searching in {normalized_city} for DNA: {visual_description}")
-    return chroma_db.search_chroma_airbnb_by_vibe(
-        collection_name="airbnb_listing",
-        vibe_description=visual_description,
-        n_results=10,
-        city=normalized_city
     )
+
+# try:
+#     lf_architect = langfuse.get_prompt("movie-trip/architect_prompt", label="production")
+#     lf_scout = langfuse.get_prompt("movie-trip/scout_prompt", label="production")
+#     architect_prompt_text = lf_architect.compile()
+#     scout_prompt_text = lf_scout.compile()
+
+# except Exception as e:
+#     architect_prompt_text = (
+#         "You are an elite cinematic location scout. "
+#         "Your job is two-fold: "
+#         "1. Identify the ACTUAL movie title from the user's prompt (remove descriptions like 'vibe of' or 'feeling like'). "
+#         "2. Your other job is to translate a movie's overarching aesthetic into realistic AIRBNB AND HOTEL search keywords. "
+#         "You must capture the ENTIRE vibe of the experience: the interior design, the exterior architecture, the neighborhood vibe, the outside surroundings, and the atmospheric mood. "
+#         "For example, translate an epic/fantasy movie into 'historic stone exterior, dark wood beams, roaring fireplace, secluded forest surroundings, foggy mountainous region'. "
+#         "Translate a gritty neo-noir movie into 'sleek minimalist interior, low-light, neon-lit urban district, bustling city streets, rain-slicked pavement'. "
+#         "Output ONLY a comma-separated list of 5-8 physical, realistic keywords that describe the property and its immediate surroundings. "
+#         "DO NOT use metaphors or unsearchable terms like 'battle-hardened' or 'dragon-glass'."
+#         "Output ONLY the JSON with 'movie_title' and 'visual_dna'."
+#     ) 
+#     scout_prompt_text=(
+#         "You are a Cinematic Travel Curator. "
+#         "1. You will receive a Movie Title, a Destination, and its 'Vibe DNA' (keywords). "
+#         "2. MANDATORY: You MUST call the 'search_database' tool using those keywords to find properties in that destination. "
+#         "3. VIBE MATCHING: Even if there isn't a literal 100% match (e.g., no real spaceships), "
+#         "you MUST pick EXACTLY 3 properties from the tool results that BEST captures the *mood* and *atmosphere* of the movie. "
+#         "Do not return 1 or 2. Even if the matches are not perfect, pick the 3 best options and creatively justify why they fit the vibe."
+#         "4. SCORING: Provide a 'vibe_score' (e.g., 75/100) reflecting how well the property aligns with the movie's aesthetic. "
+#         "5. EXPLAIN: Creatively justify the matchin a fun, creative way, but use simple, everyday language. "
+#         "You MUST mention specific interior design features AND the exterior/neighborhood vibe from the listing to explain why it evokes the movie. "
+#         "6. EXACT DATA: Extract 'listing_url', 'picture_url', and 'property_name' EXACTLY as provided by the tool. DO NOT invent or hallucinate properties. If the tool returns nothing, state that no match was found. "
+#         "7. MOVIE TITLE: Set the 'movie_title' field to the EXACT title provided in the prompt. Do not guess or change it. "
+#         "8. FORMAT: You must output exactly 3 items in your matches list."
+#     ),
+
+
+
 
 # --- 3. THE V3 TRACKING WRAPPERS ---
 @mlflow.trace(name="architect_generation")
 @observe(as_type="generation", name="architect_generation")
 async def run_architect_with_tracking(user_prompt: str):
-    # 🔗 Langfuse v3: Call update directly on the client!
+    mlflow_architect = get_or_create_prompt_mlflow("movie-trip-architect", DEFAULT_ARCHITECT)
+    lf_architect = get_or_create_prompt_langfuse("movie-trip/architect_prompt", DEFAULT_ARCHITECT)
+    architect_prompt_text = mlflow_architect.template
+    architect_prompt_text = lf_architect.compile()
+
+    # Agent.instrument_all()
+    architect_agent = Agent(
+        model,
+        output_type=ArchitectOutput,
+        name="architect_agent",
+        system_prompt=architect_prompt_text,
+        instrument=True
+    )
     langfuse.update_current_generation(prompt=lf_architect)
     return await architect_agent.run(user_prompt, model_settings={"temperature": 0.3})
 
 @mlflow.trace(name="scout_generation")
 @observe(as_type="generation", name="scout_generation")
 async def run_scout_with_tracking(prompt_to_scout: str, city: str):
-    # 🔗 Langfuse v3: Call update directly on the client!
+
+    mlflow_scout = get_or_create_prompt_mlflow("movie-trip-scout", DEFAULT_SCOUT)
+    lf_scout = get_or_create_prompt_langfuse("movie-trip/scout_prompt", DEFAULT_SCOUT)
+    scout_prompt_text = mlflow_scout.template
+    scout_prompt_text = lf_scout.compile()
+
+    scout_agent = Agent(
+        model,
+        deps_type=SearchDeps,
+        output_type=MovieHotelMatch,
+        name="scout_agent",
+        system_prompt=scout_prompt_text,
+        instrument=True
+    )
+
+    @scout_agent.tool
+    async def search_database(ctx: RunContext[SearchDeps], visual_description: str) -> list[dict]:
+        normalized_city = ctx.deps.city
+        print(f"🕵️ Scout searching in {normalized_city} for DNA: {visual_description}")
+        return chroma_db.search_chroma_airbnb_by_vibe(
+            collection_name="airbnb_listing",
+            vibe_description=visual_description,
+            n_results=10,
+            city=normalized_city
+        )
+
     langfuse.update_current_generation(prompt=lf_scout)
     return await scout_agent.run(
         prompt_to_scout,
@@ -252,7 +339,7 @@ if __name__ == "__main__":
         print(f"🏨 FOUND {len(match.matches)} MATCHES:")
         
         # 🟢 UPDATED: Loop through the 3 matches
-        for idx, prop in enumerate(match.matches, 3):
+        for idx, prop in enumerate(match.matches, 1):
             print(f"\n  --- Match #{idx} ---")
             print(f"  Score: {prop.vibe_score}/100")
             print(f"  Vibe Check: {prop.explanation}")
