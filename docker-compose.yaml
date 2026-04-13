@@ -40,6 +40,8 @@ services:
     command: ["uv", "run", "fastapi", "run", "backend/main.py", "--port", "8000", "--host", "0.0.0.0"]
     networks:
       - movie-network
+      - langfuse-network
+      - mlflow-network
 
 # clickhouse:
   #   image: clickhouse/clickhouse-server:26.2.4
