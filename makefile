@@ -69,6 +69,7 @@ pipeline_docker_ingestion_airbnb:
 	docker compose exec backend uv run python pipeline/ingestion_airbnb.py
 
 pipeline_docker_ingestion_airbnb_duckdb:
+	docker compose exec backend uv run python pipeline/scrape_airbnb.py
 	docker compose exec backend uv run python pipeline/ingestion_airbnb_duckdb.py
 
 pipeline_docker_vector_airbnb:
