@@ -6,7 +6,11 @@ import duckdb
 import os
 from backend.agent import run_orchestrator # Import your existing agent
 
-app = FastAPI()
+app = FastAPI(
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
+    redoc_url="/api/redoc"
+)
 
 # Enable CORS so your React frontend can talk to this API
 app.add_middleware(
