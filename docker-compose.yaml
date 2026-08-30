@@ -30,7 +30,8 @@ services:
       - "8000:8000" 
     environment:
       - CHROMA_HOST=chromadb  
-      - CHROMA_PORT=8000       
+      - CHROMA_PORT=8000      
+      - MLFLOW_TRACKING_URI=http://mlflow-server:5000
     depends_on:
       - chromadb
     volumes:
