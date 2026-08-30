@@ -1,63 +1,64 @@
-# Variables
-COMPOSE_FILE=docker-compose.yml
+COMPOSE_FILE = docker-compose.yml
+COMPOSE_LOCAL_FILE = docker-compose-local.yaml
 
-.PHONY: up down restart status logs shell clean heartbeat
+.PHONY: init up up_build up_build_local down down_local restart status logs shell heartbeat clean clean_all \
+        pipeline_ingestion_airbnb pipeline_vector_airbnb agent_test \
+        pipeline_docker_ingestion_airbnb pipeline_docker_vector_airbnb \
+        fastapi_dev fastapi_docker_build fastapi_docker_run_container duckdb_docker
 
-# Start the ChromaDB service in the background
-up:
-	docker compose up -d
+# Ensure external networks exist before booting
+init:
+	@docker network inspect movie-network >/dev/null 2>&1 || docker network create movie-network
+	@docker network inspect langfuse-network >/dev/null 2>&1 || docker network create langfuse-network
+	@docker network inspect mlflow-network >/dev/null 2>&1 || docker network create mlflow-network
 
-up_build:
-	docker compose up --build -d
+# ---------------------------------------------------------
+# DOCKER COMPOSE COMMANDS
+# ---------------------------------------------------------
+up: init
+	docker compose -f $(COMPOSE_FILE) up -d
 
-up_build_local:
-	docker network inspect movie-network >/dev/null 2>&1 || docker network create movie-network
-	docker compose -f docker-compose-local.yaml up --build -d
+up_build: init
+	docker compose -f $(COMPOSE_FILE) up --build -d
 
-# Stop the service
+up_build_local: init
+	docker compose -f $(COMPOSE_LOCAL_FILE) up --build -d
+
 down:
-	docker compose down
+	docker compose -f $(COMPOSE_FILE) down
 
 down_local:
-	docker compose -f docker-compose-local.yaml down
+	docker compose -f $(COMPOSE_LOCAL_FILE) down
 
-# Restart the service (useful if you change the volumes or config)
 restart:
-	docker compose restart
+	docker compose -f $(COMPOSE_FILE) restart
 
-# Check the status of the containers
 status:
-	docker compose ps
+	docker compose -f $(COMPOSE_FILE) ps
 
-# Follow the logs to see what's happening inside Chroma
 logs:
-	docker compose logs -f
+	docker compose -f $(COMPOSE_FILE) logs -f
 
-# Enter the container's shell (useful for debugging)
 shell:
-	docker exec -it $(shell docker ps -qf "name=chromadb") /bin/sh
+	docker exec -it chromadb /bin/sh
 
-# Check the heartbeat (Healthcheck) via curl locally
-# Note: uses the mapped port 8201
 heartbeat:
 	curl -f http://localhost:8201/api/v2/heartbeat
 
-# Clean up: stops containers and removes the chroma-data volume (WARNING: deletes data)
 clean:
-	docker compose down -v
-	docker system prune
+	docker compose -f $(COMPOSE_FILE) down -v
+	docker system prune -f
 
 clean_all:
-	docker compose down -v
-	docker system prune -a
-	rm -rf ./_chroma-data
-	rm -rf ./_clickhouse-data
+	docker compose -f $(COMPOSE_FILE) down -v
+	docker system prune -a -f
+	rm -rf ./_chroma-data ./_clickhouse-data
 
-example_chroma:
-	uv run example/chroma.py
-
-pipeline_ingestion_airbnb_duckdb:
-	uv run python pipeline/ingestion_airbnb_duckdb.py
+# ---------------------------------------------------------
+# LOCAL PIPELINE SCRIPTS (Run directly via uv on host)
+# ---------------------------------------------------------
+pipeline_ingestion_airbnb:
+	uv run python pipeline/ingestion_airbnb.py
 
 pipeline_vector_airbnb:
 	uv run python pipeline/vector_airbnb.py
@@ -65,35 +66,34 @@ pipeline_vector_airbnb:
 agent_test:
 	uv run backend/agent.py
 
-pipeline_docker_ingestion_airbnb:
-	docker compose exec backend uv run python pipeline/ingestion_airbnb.py
+example_chroma:
+	uv run example/chroma.py
 
-pipeline_docker_ingestion_airbnb_duckdb:
+# ---------------------------------------------------------
+# DOCKER PIPELINE SCRIPTS (Run inside backend container)
+# ---------------------------------------------------------
+pipeline_docker_ingestion_airbnb:
 	docker compose exec backend uv run python pipeline/scrape_airbnb.py
-	docker compose exec backend uv run python pipeline/ingestion_airbnb_duckdb.py
+	docker compose exec backend uv run python pipeline/ingestion_airbnb.py
 
 pipeline_docker_vector_airbnb:
 	docker compose exec backend uv run python pipeline/vector_airbnb.py
 
-# ----------
-# fastapi
-# ----------
-
+# ---------------------------------------------------------
+# FASTAPI
+# ---------------------------------------------------------
 fastapi_dev:
-	export PYTHONPATH=$PYTHONPATH:.
-	uv run fastapi dev backend/main.py --port 8000
+	export PYTHONPATH=$$PYTHONPATH:. && uv run fastapi dev backend/main.py --port 8000
 
-# This builds the image from the root context so 'shared' is included
 fastapi_docker_build:
-	docker build -t movie-planner-backend -f backend/Dockerfile .
+	docker build -t movie-planner-backend -f Dockerfile .
 
-# Runs the container locally to test the production build
 fastapi_docker_run_container:
-	docker run -p 8000:80 --env-file backend/.env movie-planner-backend
+	docker run -p 8000:8000 --env-file .env movie-planner-backend
 
-# ----------
-# duckdb
-# ----------
+# ---------------------------------------------------------
+# DUCKDB
+# ---------------------------------------------------------
 
 duckdb_docker:
 	docker compose exec backend duckdb /app/_duckdb-data/hotel_movie.db
