@@ -26,8 +26,9 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 # mlflow
 mlflow.pydantic_ai.autolog()
-tracking_uri = mlflow.get_tracking_uri()
-print(f"Current tracking uri: {tracking_uri}")
+mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow-server:5000")
+mlflow.set_tracking_uri(mlflow_uri)
+print(f"Current tracking uri: {mlflow.get_tracking_uri()}")
 mlflow.set_experiment("movie-trip")
 
 # langfuse
