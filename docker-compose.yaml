@@ -37,7 +37,8 @@ services:
       - duckdb_data:/app/_duckdb-data
       - .:/app
       - /app/.venv  
-    command: ["uv", "run", "fastapi", "run", "backend/main.py", "--port", "8000", "--host", "0.0.0.0"]
+    command: >
+      sh -c "uv sync && uv run fastapi run backend/main.py --port 8000 --host 0.0.0.0"
     networks:
       - movie-network
       - langfuse-network
