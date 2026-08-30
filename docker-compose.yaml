@@ -72,7 +72,7 @@ volumes:
 
 networks:
   movie-network:
-    external: true
+    name: movie-network
   langfuse-network:
     external: true
   mlflow-network:
