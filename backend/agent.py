@@ -13,6 +13,7 @@ chroma_db = ChromaClient()
 
 from langfuse import get_client
 from langfuse import Langfuse, observe
+from pydantic_ai.providers.litellm import LiteLLMProvider
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.models.google import GoogleModel
@@ -149,16 +150,25 @@ async def get_tmdb_details(movie_title: str) -> str:
             print(f"TMDB Error: {e}")
             return fallback
 
-model = GoogleModel('gemini-2.5-flash'
-                        #'gemini-2.5-flash'
-                        #'gemini-2.5-pro'
-                        # 'google-gla:gemini-2.5-flash-lite'
-                        # 'google-gla:gemma-3-27b-it'
-                        # 'google-gla:gemini-3-flash-preview'
-                        # 'google-gla:gemini-2.0-flash'
-                        # 'gemini-3-pro-preview'
-                    , provider = GoogleProvider(api_key=os.getenv("GOOGLE_API_KEY"))
+# model = GoogleModel('gemini-2.5-flash'
+#                         #'gemini-2.5-flash'
+#                         #'gemini-2.5-pro'
+#                         # 'google-gla:gemini-2.5-flash-lite'
+#                         # 'google-gla:gemma-3-27b-it'
+#                         # 'google-gla:gemini-3-flash-preview'
+#                         # 'google-gla:gemini-2.0-flash'
+#                         # 'gemini-3-pro-preview'
+#                     , provider = GoogleProvider(api_key=os.getenv("GOOGLE_API_KEY"))
+# )
+
+model = OpenAIChatModel(
+    'gemini/gemini-2.5-flash',
+    provider=LiteLLMProvider(
+        api_base=os.getenv("LITELLM_API_BASE_URL", "http://localhost:9993"),
+        api_key=os.getenv("LITELLM_API_KEY")
+    )
 )
+agent = Agent(model)
 
 # --- 2. THE ARCHITECT (AGENT A) ---
 # Goal: Translate "Movie Title" -> "Interior Design Keywords"
