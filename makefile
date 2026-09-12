@@ -1,4 +1,4 @@
-COMPOSE_FILE = docker-compose.yml
+COMPOSE_FILE = docker-compose.yaml
 COMPOSE_LOCAL_FILE = docker-compose-local.yaml
 
 .PHONY: init up up_build up_build_local down down_local restart status logs shell heartbeat clean clean_all \
