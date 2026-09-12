@@ -77,6 +77,8 @@ networks:
     name: movie-network
   langfuse-network:
     external: true
+  litellm-network:
+    external: true
   mlflow-network:
     external: true
   

@@ -6,6 +6,7 @@ dist/
 wheels/
 *.egg-info
 *.DS_Store
+mlflow.db
 
 # Virtual environments
 .venv
@@ -16,3 +17,4 @@ _clickhouse-data/
 _duckdb-data/
 _backup/
 _temp/
+*_test_*.py
