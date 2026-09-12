@@ -44,6 +44,7 @@ services:
       - movie-network
       - langfuse-network
       - mlflow-network
+      - litellm-network
 
 # clickhouse:
   #   image: clickhouse/clickhouse-server:26.2.4
